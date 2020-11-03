@@ -85,7 +85,7 @@ class LocalMarket:
             self.coin1_balance = coin1_balance
             self.coin2_balance = coin2_balance
             if trade_fee is None:
-                self.trade_fee = self.client.get_trade_fee(symbol=self.coin1+self.coin2)['maker']
+                self.trade_fee = self.client.get_trade_fee(symbol=self.coin1+self.coin2).get('tradeFee')[0].get('maker')
             else:
                 self.trade_fee = trade_fee
     
@@ -233,8 +233,6 @@ class LocalMarket:
         estimated_value = self.coin1_balance + coin2_balance_conv
         return estimated_value
     
-            
-
 
     def print_wallet(self):
 
