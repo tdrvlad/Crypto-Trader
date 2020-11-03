@@ -8,6 +8,8 @@ from local_market import LocalMarket
 from utils import price_instance, get_price_instance, get_prices_from_data
 from strategies import ChosenStrategy, BasicStrategy
 from tqdm import tqdm
+from data_processing import soft_filter, hard_filter, \
+    first_grad, second_grad, decomp_grad
 
 class Trader:
 
@@ -18,7 +20,6 @@ class Trader:
         self.coin2 = coin2
 
         self.market = LocalMarket(self.coin1, self.coin2, testing = testing)
-
         self.history = History(self.coin1, self.coin2)
 
         self.coin1_balance, self.coin2_balance = self.market.get_balance()
@@ -26,28 +27,25 @@ class Trader:
 
     def decide_action(self):
         
-        strategy = BasicStrategy()
+        strategy = ChosenStrategy()
         price12_data = self.market.get_price_data(strategy.no_samples)
         
         if not price12_data is None:   
             price12 = get_prices_from_data(price12_data)
-            action, amount = strategy.get_choice(self.coin1_balance, self.coin2_balance, price12)
-            
-            moment = Moment(
-                self.coin1, self.coin2, 
-                price12[-1],
-                self.market.estimate_wallet_value_coin1()
+            filtered_price12 = soft_filter(price12)
+            grad1_price12 = first_grad(filtered_price12)
+            traded_amount = strategy.get_choice(
+                self.coin1_balance, self.coin2_balance, 
+                price12, filtered_price12, grad1_price12
                 )
-
-            if action == 1:     
-                if self.market.buy_coin1(amount) == 1:
-                    moment.add_decision('buy')
             
-            if action == -1:
-                if self.market.sell_coin1(amount) == 1:
-                    moment.add_decision('sell')
-    
-            self.history.add_moment(moment=moment)
+            self.history.add_instance(
+                price12 = price12[-1],
+                filtered_price12 = filtered_price12[-1],
+                grad1_price12 = grad1_price12[-1],
+                balance = self.market.estimate_wallet_value_coin1,
+                traded_amount = traded_amount
+            )
 
     
     def run(self, samples, wait_time = 1):
@@ -69,85 +67,61 @@ class Trader:
             self.decide_action()
             time.sleep(wait_time)
         self.market.print_wallet()
-        self.history.print_history()
         self.history.plot_history()
-
-
-class Moment:
-
-    def __init__(self, coin1, coin2, price12, instant_balance):
-      
-        self.symbol = coin1 + coin2
-        self.price12 = price12
-        self.instant_balance = instant_balance
-        
-        # /data is an array of dictionaries refering to aditional 
-        # information used for decision like first or second order gradients
-        self.data = []
-        self.buy = False
-        self.sell = False
-    
-    def add_data(self, name, value):
-        data_instance = {
-            'name' : name,
-            'value' : value
-        }
-        self.data.append(data_instance)
-    
-    def add_decision(self, action):
-        if action == 'buy':
-            self.buy = True
-        if action == 'sell':
-            self.sell = True
 
 
 class History:
 
     def __init__(self, coin1, coin2):
-        pass
-
         self.symbol = coin1 + coin2
         self.price12 = []
+        self.filtered_price12 = []
+        self.grad1_price12 = []
         self.balance = []
-        self.data = {} 
-        self.buy_actions = []
-        self.sell_actions = []
+        self.orders = []
 
 
-    def add_moment(self, moment):
+    def add_instance(self, price12, filtered_price12, grad1_price12, balance, traded_amount = 0):
 
-        self.price12.append(moment.price12)
-        self.balance.append(moment.instant_balance)
-
-        for data_instance in moment.data:
-            data_name = data_instance.get('name')
-            data_value = data_instance.get('value')
-            if data_name not in self.data:
-                self.data[data_name] = []
-            self.data[data_name].append(data_value)
-        
-        if moment.buy == True:
-            self.buy_actions.append(moment.price12)
-        else:
-            self.buy_actions.append(np.nan)
-        if moment.sell == True:
-            self.sell_actions.append(moment.price12)
-        else:
-            self.sell_actions.append(np.nan)
+        self.price12.append(price12)
+        self.filtered_price12.append(filtered_price12)
+        self.grad1_price12.append(grad1_price12)
+        self.balance.append(balance)
+        self.orders.append(traded_amount)
+        '''
+            A non-zero traded amount means an order was placed. 
+            If the amount is positive, the action was a buy.
+            If the amount is negative, the action is a sell.
+        '''
 
 
     def plot_history(self):
 
-        if len(self.price12) != len(self.balance):
+        if len(self.price12) != len(self.filtered_price12) or \
+            len(self.filtered_price12) != len(self.grad1_price12) or \
+            len(self.balance) != len(self.orders):
             print('Corrupted or incomplete data for price and balance.')
         else:
             no_data_points = len(self.price12)
             print('Recorded {} data points.'.format(no_data_points))
             
+            # | Plot first gradient of the data
+            pos_grad1, neg_grad1 = decomp_grad(self.price12, self.grad1_price12)
+            plt.plot(pos_grad1, linewidth = 2, color = 'lightgreen')
+            plt.plot(neg_grad1, linewidth = 2, color = 'lightcoral')
+            
+            # | Plot the data with different levels of filtering (in different shades)
+            plt.plot(self.price12, linewidth=3, color = 'grey')
+            plt.plot(self.filtered_price12, linewidth=1, color = 'black')
+            
+            '''
             max_price12 = np.amax(self.price12)
-            plt.plot(self.price12, linewidth=2, color='black')
+            plt.plot(self.price12, linewidth=1, color='black')
 
             scaler = max_price12 / np.amax(self.balance)
+            
+            
+            np.amin(data) - np.amax(balance)
             scaled_balance = [val * scaler for val in self.balance]
             #plt.plot(scaled_balance, linewidth=2, color = 'red')
 
@@ -165,26 +139,27 @@ class History:
                     #scaled_data = [val * scaler for val in self.data[data_type]]
                     plt.plot(self.data[data_type], linewidth=1, color=(col,col,col))
                     print('Plotted {}.'.format(data_type))
-            
-            plt.plot(self.buy_actions, marker='D', color='dodgerblue')
-            plt.plot(self.sell_actions, marker='s', color='peru')
+            '''
+            # | Plotting the buy and sell orders.
+            '''
+                Markers will be blue diamonds for buy and yellow squares for sell.
+                The size of the marker will be proportional to the traded amount.
+            '''
+            max_size = 13
+            min_size = 3
+            max_amount = np.amax([np.amax(self.orders), np.amin(self.orders)])
+            for i in range(len(self.orders)): 
+                size = abs(self.orders[i]) * (max_size - min_size) / max_amount + min_size
+                if self.orders[i] > 0:
+                    plt.plot(i, self.filtered_price12[i], marker='o', color='blue', markersize=size)
+                if self.orders[i] < 0:
+                    plt.plot(i, self.filtered_price12[i], marker='d', color='magenta', markersize=size)
+
             plt.grid(True)
             plt.show()
 
 
-    def print_history(self):
-        if len(self.price12) != len(self.balance):
-            print('Corrupted or incomplete data for price and balance.')
-            print('{} samples for price; {} samples for balance'.format(len(self.price12),len(self.balance)))
-        else:
-            no_data_points = len(self.price12)
-            print('Recorder {} samples.'.format(no_data_points))
-        
-            for data_type in self.data.keys():
-                if len(self.data[data_type]) != no_data_points:
-                    print('Corrupted or incomplete data for {}.'.format(data_type))
-                else:
-                    print('Recorderd data for {}.'.format(data_type))
+
 
             
 

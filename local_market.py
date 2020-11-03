@@ -8,9 +8,10 @@ from tqdm import tqdm
 from binance.client import Client
 import time, os, yaml, json
 import numpy as np
-from scipy.signal import lfilter
 from datetime import datetime
 from utils import price_instance, get_price_instance, get_prices_from_data
+from data_processing import soft_filter, hard_filter, \
+    first_grad, second_grad, decomp_grad
 
 # | Binance API Credentials are taken from a separate .yaml file
 parameters_file = 'parameters.yaml'
@@ -278,7 +279,7 @@ class MarketAnalyser:
         
         self.price_data_file = params.get('price_data_file')
 
-        self.price12_data = []
+        self.price12 = []
 
         self.load_data()
         self.plot_data()
@@ -291,30 +292,30 @@ class MarketAnalyser:
                 data = json.load(json_file)
             for instance in data:
                 price12, time = get_price_instance(instance)
-                self.price12_data.append(price12)
-
-
-    def filter_data(self, n = 20):
-        '''
-            The larger the filtering factor, the smoother the curve.
-            The effect f the smoothness if a delay between the 2 graphs.
-            https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.lfilter.html
-        '''
-        if len(self.price12_data) > n:
-            filtered_data = lfilter(
-                b = [1.0 / n] * n,
-                a = 1,
-                x = self.price12_data)
-            filtered_data[:n] = self.price12_data[:n]
-        else:
-            filtered_data = self.price12_data
-        return filtered_data
+                self.price12.append(price12)
 
 
     def plot_data(self):
 
-        plt.plot(self.price12_data, linewidth=1, color = 'blue')
-        plt.plot(self.filter_data(), linewidth=1, color = 'dodgerblue')
+        # | Plot the first gradient of the data
+        grad1 = first_grad(self.price12)
+        pos_grad1, neg_grad1 = decomp_grad(self.price12, grad1)
+        plt.plot(pos_grad1, linewidth = 3, color = 'lightgreen')
+        plt.plot(neg_grad1, linewidth = 3, color = 'lightcoral')
+
+        # | Plot the first gradient of the filtered data
+        grad1 = first_grad(soft_filter(self.price12))
+        pos_grad1, neg_grad1 = decomp_grad(soft_filter(self.price12), grad1)
+        plt.plot(pos_grad1, linewidth = 1, color = 'green')
+        plt.plot(neg_grad1, linewidth = 1, color = 'firebrick')
+
+        # | Plot the data with different levels of filtering (in different shades)
+        plt.plot(self.price12, linewidth=3, color = 'lightsteelblue')
+        plt.plot(soft_filter(self.price12), linewidth=2, linestyle = '-', color = 'royalblue')
+        plt.plot(hard_filter(self.price12), linewidth=1, linestyle = '-', color = 'navy')
+
+        plt.grid(True)
+
         plt.show()
            
 
