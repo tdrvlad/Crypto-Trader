@@ -23,20 +23,20 @@ class Trader:
         self.history = History(self.coin1, self.coin2)
 
         self.coin1_balance, self.coin2_balance = self.market.get_balance()
+        self.strategy = ChosenStrategy()
 
 
     def decide_action(self):
         
         self.coin1_balance, self.coin2_balance = self.market.get_balance()
-        strategy = ChosenStrategy()
-        price12_data = self.market.get_price_data(strategy.no_samples)
+        price12_data = self.market.get_price_data(self.strategy.no_samples)
         
         if not price12_data is None:   
             price12 = get_prices_from_data(price12_data)
             filtered_price12 = soft_filter(price12)
             grad1_price12 = first_grad(filtered_price12)
 
-            traded_amount = strategy.get_choice(
+            traded_amount = self.strategy.get_choice(
                 coin1_balance = self.coin1_balance, 
                 coin2_balance = self.coin2_balance, 
                 price12 = price12,
@@ -64,13 +64,14 @@ class Trader:
             )
 
     
-    def run(self, samples, wait_time = 1):
+    def run(self, samples = 100, wait_time = 1):
         
         if self.testing is True:
             print('Running in test mode.')
             wait_time = 0
             if not self.market.loaded_data is None:
-                samples = len(self.market.loaded_data)
+                if samples > len(self.market.loaded_data):
+                    samples = len(self.market.loaded_data)
                 print('Found local data: {} samples.'.format(samples))
             else:
                 print('No local data found. Will generate {} random samples.'.format(samples))
@@ -82,6 +83,7 @@ class Trader:
             #print('{} price: {}'.format(self.coin1+self.coin2, self.market.price_data[-1].get('price')), flush=True)
             self.decide_action()
             time.sleep(wait_time)
+        self.strategy.save_model()
         self.market.print_wallet()
         self.history.plot_history()
 
@@ -134,7 +136,7 @@ class History:
             # | Plot the balance total estimate
             #scaler = (np.amax(self.price12) - np.amin(self.price12)) / (np.amax(self.balance) - np.amin(self.balance))
             scaler = np.amax(self.price12) / np.amax(self.balance)
-            scaled_balance = np.array(self.balance) * scaler
+            scaled_balance = np.array(hard_filter(self.balance)) * scaler
             plt.plot(scaled_balance, linewidth=2, linestyle=':', color = 'dodgerblue')
 
 
@@ -165,7 +167,7 @@ if __name__ == '__main__' :
 
 
     trader = Trader('BNB', 'BTC', testing=True)
-    trader.market.set_test_values(10, 0.1, None)
-    trader.run(3500)
+    trader.market.set_test_values(10, 0, None)
+    trader.run(samples = 10000)
 
 

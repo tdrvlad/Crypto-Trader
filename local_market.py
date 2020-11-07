@@ -319,15 +319,15 @@ class MarketAnalyser:
 
 if __name__ == '__main__' :
 
-    hours = 0
-    minutes = 1
-
-    #gather_data(hours,minutes)
-    market_analyser = MarketAnalyser()
-    
     def gather_data(hours_to_run, minutes_to_run):
     
         local_market = LocalMarket('BNB', 'BTC', testing=False)
         local_market.record_data(record_time = hours_to_run * 3600 + minutes_to_run * 60)
+
+    hours = 8
+    minutes = 0
+
+    gather_data(hours,minutes)
+    market_analyser = MarketAnalyser()
     
-    
+   
