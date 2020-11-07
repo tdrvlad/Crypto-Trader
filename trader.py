@@ -168,6 +168,6 @@ if __name__ == '__main__' :
 
     trader = Trader('BNB', 'BTC', testing=True)
     trader.market.set_test_values(10, 0, None)
-    trader.run(samples = 10000)
+    trader.run(samples = 300)
 
 

@@ -16,6 +16,10 @@ os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = "true"
 
 class DQN:
     
+    '''
+        https://towardsdatascience.com/reinforcement-learning-w-keras-openai-dqns-1eed3a5338c
+    '''
+    
     def __init__(self, model_name, no_inputs, no_outputs, batch_size = 16):
         
         self.model_name = model_name
@@ -66,7 +70,7 @@ class DQN:
 
         model   = Sequential()
         model.add(Input(self.no_inputs, name = 'Input'))
-        #model.add(Dense(self.no_inputs * 2, activation="relu"))
+        model.add(Dense(self.no_inputs * 2, activation="relu"))
         model.add(Dense(self.no_inputs * self.no_outputs, activation="relu"))
         #model.add(Dense(self.no_outputs * 2, activation="relu"))
         model.add(Dense(self.no_outputs))
@@ -195,32 +199,49 @@ class DQNStrategy:
         if not self.last_state is None and not self.last_action is None and not self.last_balance is None:
             self.model.remember(
                 state = self.last_state,
-                action = self.last_action,
-                reward = ballance - self.last_balance,
+                action = np.argmax(self.last_action),
+                reward = (ballance - self.last_balance) * np.max(self.last_action),
                 new_state = self.new_state
             )
+
+            '''
+                A reward is associated with a past action to indicate wether its outcome was beneficial or not.
+                The action_space is an array [buy, sell, hold] with each value indicating the confidence for the resp. action.
+                The reward will be computed as the profit weighted by the confidence.
+            '''
+
             if np.random.uniform() > 0.8:
                 self.model.replay()
                 self.model.target_train()
 
-        decision = self.model.act(self.new_state)
-        self.action = np.argmax(decision)
+        self.action = self.model.act(self.new_state)
+        self.action[self.action<0] = 0
 
         self.last_state = self.new_state
         self.last_action = self.action
         self.last_balance = ballance
 
-        if self.action == 0:
+        print('\nAction: {}'.format(self.action),flush=True)
+        buy_decision = self.action[0] / np.sum(self.action)
+        sell_decision = self.action[1] / np.sum(self.action)
+        hold_decision = self.action[2] / np.sum(self.action)
+
+        decision = [buy_decision, sell_decision, hold_decision]
+        print('Decision: {}'.format(decision))
+        print('Balance: C1: {}, C2: {} ({} in C1)'.format(coin1_balance, coin2_balance, coin2_balance_conv))
+        if np.argmax(decision) == 0:
             '''
                 BUY
             '''
-            return decision[self.action] * coin2_balance_conv
+            print('Buy {} C1'.format(buy_decision * coin2_balance_conv))
+            return buy_decision * coin2_balance_conv
         
-        if self.action == 1:
+        if np.argmax(decision) == 1:
             '''
                 SELL
             '''
-            return -decision[self.action] * coin1_balance
+            print('Sell {} C1'.format(sell_decision * coin1_balance))
+            return -sell_decision * coin1_balance
         return 0
 
 
