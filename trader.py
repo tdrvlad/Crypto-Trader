@@ -5,12 +5,22 @@ import time, yaml
 import numpy as np
 from scipy.signal import lfilter
 from local_market import LocalMarket
-from utils import price_instance, get_price_instance, get_prices_from_data
 from strategies import ChosenStrategy
 from tqdm import tqdm
 from data_processing import soft_filter, hard_filter, \
     first_grad, second_grad, decomp_grad
 
+
+class HistoryInstance:
+
+    def __init__(self, price_instance, coin1_balance, coin2_balance, action):
+
+        self.price_instance = price_instance
+        self.coin1_balance = coin1_balance
+        self.coin2_balance = coin2_balance
+        self.action = action
+
+        
 class Trader:
 
     def __init__(self, coin1, coin2, testing = True):
@@ -29,19 +39,14 @@ class Trader:
     def decide_action(self):
         
         self.coin1_balance, self.coin2_balance = self.market.get_balance()
-        price12_data = self.market.get_price_data(self.strategy.no_samples)
+        price_instance_samples = self.market.get_price_data(self.strategy.no_samples)
         
-        if not price12_data is None:   
-            price12 = get_prices_from_data(price12_data)
-            filtered_price12 = soft_filter(price12)
-            grad1_price12 = first_grad(filtered_price12)
+        if not price_instance_samples is None:   
 
             traded_amount = self.strategy.get_choice(
                 coin1_balance = self.coin1_balance, 
                 coin2_balance = self.coin2_balance, 
-                price12 = price12,
-                filtered_price12 = filtered_price12,
-                gradient_price12 = grad1_price12
+                price_instance_samples = price_instance_samples
                 )
 
             resp = None
@@ -56,9 +61,7 @@ class Trader:
                 traded_amount = 0
             
             self.history.add_instance(
-                price12 = price12[-1],
-                filtered_price12 = filtered_price12[-1],
-                grad1_price12 = grad1_price12[-1],
+                price12 = price_instance_samples[-1].last_price,
                 instant_balance = self.market.estimate_wallet_value_coin1(),
                 traded_amount = traded_amount
             )
@@ -83,7 +86,7 @@ class Trader:
             #print('{} price: {}'.format(self.coin1+self.coin2, self.market.price_data[-1].get('price')), flush=True)
             self.decide_action()
             time.sleep(wait_time)
-        self.strategy.save_model()
+        #self.strategy.save_model()
         self.market.print_wallet()
         self.history.plot_history()
 
@@ -99,11 +102,9 @@ class History:
         self.orders = []
 
 
-    def add_instance(self, price12, filtered_price12, grad1_price12, instant_balance, traded_amount = 0):
+    def add_instance(self, price12, instant_balance, traded_amount = 0):
 
         self.price12.append(price12)
-        self.filtered_price12.append(filtered_price12)
-        self.grad1_price12.append(grad1_price12)
         self.balance.append(instant_balance)
         self.orders.append(traded_amount)
         '''
@@ -115,22 +116,15 @@ class History:
 
     def plot_history(self):
 
-        if len(self.price12) != len(self.filtered_price12) or \
-            len(self.filtered_price12) != len(self.grad1_price12) or \
-            len(self.balance) != len(self.orders):
+        if len(self.price12) != len(self.balance) != len(self.orders):
             print('Corrupted or incomplete data for price and balance.')
         else:
             no_data_points = len(self.price12)
             print('Recorded {} data points.'.format(no_data_points))
-            
-            # | Plot first gradient of the data
-            pos_grad1, neg_grad1 = decomp_grad(self.price12, self.grad1_price12)
-            plt.plot(pos_grad1, linewidth = 2, color = 'lightgreen')
-            plt.plot(neg_grad1, linewidth = 2, color = 'lightcoral')
+        
             
             # | Plot the data with different levels of filtering (in different shades)
             plt.plot(self.price12, linewidth=3, color = 'grey')
-            plt.plot(self.filtered_price12, linewidth=1, color = 'black')
             
             
             # | Plot the balance total estimate
@@ -159,15 +153,11 @@ class History:
             plt.show()
 
 
-
-
-            
-
 if __name__ == '__main__' :
 
 
-    trader = Trader('BNB', 'BTC', testing=True)
+    trader = Trader('BTC', 'USDT', testing=True)
     trader.market.set_test_values(10, 0, None)
-    trader.run(samples = 300)
+    trader.run(samples = 1000)
 
 

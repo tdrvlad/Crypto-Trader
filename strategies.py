@@ -250,14 +250,28 @@ class DummyStrategy:
     def __init__(self):
         self.no_samples = 20
     
-    def get_choice(self, coin1_balance, coin2_balance, price12, filtered_price, gradient_price12):
+    def get_choice(self, coin1_balance, coin2_balance, price_instance_samples):
         
-        if np.random.uniform() > 0.995:
-            return np.random.uniform()
+        prices = []
+        for price_instance in price_instance_samples:
+            prices.append(price_instance. weighted_avg_price)
         
-        if np.random.uniform() > 0.995:
-            return -np.random.uniform()
+        window = 3
+        ref = sum(prices[-window:]) / len(prices[-window:])
+
+        percentage_changes = []
+
+        for price in prices[:-window]:
+            percentage_changes.append((ref - price)/price)
+
+        if sum(percentage_changes) / len(percentage_changes) > 1:
+
+            return 1
         
+        if sum(percentage_changes) / len(percentage_changes) < -1:
+
+            return -1
+
         return 0
 
 class BasicGradStrategy:
@@ -316,4 +330,4 @@ class BasicGradStrategy:
         return 0
     
 
-ChosenStrategy = DQNStrategy
+ChosenStrategy = DummyStrategy
