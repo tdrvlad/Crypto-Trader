@@ -1,6 +1,5 @@
 parameters.yaml
-runtime_data.json
-/utils
+
 /__pycache__
-/old_data
+/price_logs
 /.vscode

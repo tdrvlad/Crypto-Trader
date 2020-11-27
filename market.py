@@ -108,7 +108,7 @@ class TestMarket:
     
 
     def get_wallet(self):       
-        return self.coin1_balance, self.coin2_balance, self.estimate_wallet_value_coin1()
+        return self.coin1_balance, self.coin2_balance, self.estimate_wallet_value_coin1
 
 
     def estimate_wallet_value_coin1(self): 
@@ -152,8 +152,8 @@ class TestMarket:
         plt.title(self.price_logs[0].symbol + ' ' + str(self.price_logs[0].time))
         plt.plot(scaled_last_price, label = 'scaled last price')
         plt.plot(scaled_volume, label = 'scaled volume')
-        #plt.plot(scaled_price_change_percent, label = 'scaled price_change_percent')
-        #plt.plot(scaled_weighted_avg_price, label = 'scaled_weighted_avg_price')
+        plt.plot(price_change_percent, label = 'scaled price_change_percent')
+        plt.plot(scaled_weighted_avg_price, label = 'scaled_weighted_avg_price')
         plt.legend()
         plt.grid(True)
         plt.show()
@@ -233,24 +233,18 @@ class LiveMarket:
             print('\nNot enough {} (needed {}, available {})'.format(self.coin2, coin2_amount, self.coin2_balance),flush=True)
             return 0
         else: 
-            if self.testing is True:
-                self.coin2_balance -= coin2_amount
-                self.coin1_balance += (1 - self.trade_fee) * coin1_amount
+            try:                 
+                order = client.order_market_buy(
+                symbol=self.coin1+self.coin2,
+                quantity=coin1_amount)
+                self.order_history.append(order)
+                self.action_history.append([self.price12_history[-1], coin1_amount, 0])
+                print('\nBought {} {}.'.format(coin1_amount, self.coin1),flush=True) 
                 #self.print_wallet()
                 return 1
-            else:
-                try:                 
-                    order = client.order_market_buy(
-                    symbol=self.coin1+self.coin2,
-                    quantity=coin1_amount)
-                    self.order_history.append(order)
-                    self.action_history.append([self.price12_history[-1], coin1_amount, 0])
-                    print('\nBought {} {}.'.format(coin1_amount, self.coin1),flush=True) 
-                    #self.print_wallet()
-                    return 1
-                except:
-                    print('\nCould not buy {} {}.'.format(coin1_amount, self.coin1),flush=True)
-                    return 0
+            except:
+                print('\nCould not buy {} {}.'.format(coin1_amount, self.coin1),flush=True)
+                return 0
             
 
     def sell_coin1(self, coin1_amount):
@@ -262,28 +256,22 @@ class LiveMarket:
             print('\nNot enough {} (needed {}, available {})'.format(self.coin1, coin1_amount, self.coin1_balance),flush=True)
             return 0
         else: 
-            if self.testing is True:
-                self.coin1_balance -= coin1_amount
-                self.coin2_balance += (1 - self.trade_fee) * coin2_amount
+            try:                 
+                order = client.order_market_sell(
+                symbol=self.coin1+self.coin2,
+                quantity=coin1_amount)
+                self.order_history.append(order)
+                self.action_history.append([self.price12_history[-1], 0, coin1_amount])
+                print('\nSold {} {}.'.format(self.coin1, coin1_amount),flush=True)
                 #self.print_wallet()
                 return 1
-            else:
-                try:                 
-                    order = client.order_market_sell(
-                    symbol=self.coin1+self.coin2,
-                    quantity=coin1_amount)
-                    self.order_history.append(order)
-                    self.action_history.append([self.price12_history[-1], 0, coin1_amount])
-                    print('\nSold {} {}.'.format(self.coin1, coin1_amount),flush=True)
-                    #self.print_wallet()
-                    return 1
-                except:
-                    print('\nCould not buy {} {}.'.format(self.coin1, coin1_amount,flush=True))
-                    return 0
+            except:
+                print('\nCould not buy {} {}.'.format(self.coin1, coin1_amount,flush=True))
+                return 0
 
 
     def get_wallet(self):       
-        return self.coin1_balance, self.coin2_balance, self.estimate_wallet_value_coin1()
+        return self.coin1_balance, self.coin2_balance, self.estimate_wallet_value_coin1
 
 
     def estimate_wallet_value_coin1(self): 
@@ -298,10 +286,10 @@ class LiveMarket:
 
 if __name__ == '__main__' :
 
-    '''
+    
     test_market = TestMarket('BTC', 'USDT')
     test_market.plot_data()
-    '''
+    
 
     '''
     live_market = LiveMarket('BTC','USDT')
