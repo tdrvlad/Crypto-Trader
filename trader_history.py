@@ -63,8 +63,24 @@ class TraderHistory:
 
         return computed_values_arrays
 
+    def get_actions_arrays(self):
+        samples = len(self.instances)
+        
+        buy_actions = np.zeros(samples)
+        sell_actions = np.zeros(samples)
 
-    def plot_history(self):
+        for i in range(samples):
+            action = self.instances[i].action
+            if action > 0:
+                buy_actions[i] = action
+            
+            if action < 0:
+                sell_actions[i] = -action
+
+        return buy_actions, sell_actions
+        
+
+    def plot_history(self, show_only_price = False):
         
         samples = len(self.instances)
         computed_values_arrays = self.get_computed_values_arrays(samples)
@@ -73,12 +89,33 @@ class TraderHistory:
         print('History instances have {} computed value(s).'.format(len(computed_values_arrays)))
         
         plt.figure()
-        for array in computed_values_arrays:
 
+        if show_only_price is True:
+            n = 1
+        else:
+            n = len(computed_values_arrays)
+
+        for array in computed_values_arrays[:n]:
             values = array.values
             scaled_values = np.interp(values, (values.min(), values.max()), (0,1))
-            plt.plot(scaled_values, label = array.label)
+            plt.plot(values, label = array.label)
+       
 
+        # | Plot actions
+
+        buy_actions, sell_actions = self.get_actions_arrays()
+        
+        buy_actions_scaled = np.array(computed_values_arrays[0].values)
+        sell_actions_scaled = np.array(computed_values_arrays[0].values)
+
+        buy_actions_scaled[buy_actions == 0] = np.nan
+        sell_actions_scaled[sell_actions == 0] = np.nan
+
+
+        plt.scatter(range(samples), buy_actions_scaled, s = buy_actions * 100, c = 'blue')
+        plt.scatter(range(samples), sell_actions_scaled, s = sell_actions * 100, c = 'brown')
+           
+            
         plt.legend()
         plt.grid(True)
         plt.show()

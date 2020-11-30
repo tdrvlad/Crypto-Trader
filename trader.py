@@ -1,7 +1,5 @@
 
 
-
-
 import glob, random, time, os, yaml, json
 import numpy as np, matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -53,17 +51,19 @@ class Trader:
 
             self.history.add_instance(history_instance)
 
+            if action > 0:
+                self.market.buy_coin1(0.9 * self.coin2_balance / current_price_instance.last_price)
+            if action < 0:
+                self.market.sell_coin1(0.9 * self.market.coin1_balance)
+            
             return 1
         else:
             return None
             
-            
-
-            
-
-
+        
     def run(self, samples = None):
-
+        
+        _, _, estimated_value_start = self.market.get_wallet()
         if samples is None:
             cont = 1
             while cont is 1:
@@ -73,6 +73,10 @@ class Trader:
                 self.run_step()
 
         self.history.plot_history()
+
+        _, _, estimated_value_end = self.market.get_wallet()
+
+        print('Wallet change: {}{}'.format(estimated_value_end - estimated_value_start, self.coin1))
         
     '''
     def decide_action(self):
@@ -80,18 +84,12 @@ class Trader:
         required_samples = self.strategy.no_samples
         
         if len(self.)
-
-
-
-
         if not price_instance_samples is None:   
-
             traded_amount = self.strategy.get_choice(
                 coin1_balance = self.coin1_balance, 
                 coin2_balance = self.coin2_balance, 
                 price_instance_samples = price_instance_samples
                 )
-
             resp = None
             if traded_amount > 0:
                 resp = self.market.buy_coin1(traded_amount)
@@ -138,6 +136,4 @@ if __name__ == '__main__' :
 
 
     trader = Trader('BTC', 'USDT', testing=True)
-    trader.run()
-
-
+    trader.run(samples = 500)

@@ -27,7 +27,7 @@ class PriceInstance:
 
 class TestMarket:
 
-    def __init__(self, coin1, coin2, price_log_file = None, coin1_balance = 10, coin2_balance = 10, trade_fee = 0.01):
+    def __init__(self, coin1, coin2, price_log_file = None, coin1_balance = 10, coin2_balance = 10, trade_fee = 0):
         
         self.coin1 = coin1
         self.coin2 = coin2
@@ -108,7 +108,7 @@ class TestMarket:
     
 
     def get_wallet(self):       
-        return self.coin1_balance, self.coin2_balance, self.estimate_wallet_value_coin1
+        return self.coin1_balance, self.coin2_balance, self.estimate_wallet_value_coin1()
 
 
     def estimate_wallet_value_coin1(self): 
@@ -271,7 +271,7 @@ class LiveMarket:
 
 
     def get_wallet(self):       
-        return self.coin1_balance, self.coin2_balance, self.estimate_wallet_value_coin1
+        return self.coin1_balance, self.coin2_balance, self.estimate_wallet_value_coin1()
 
 
     def estimate_wallet_value_coin1(self): 
