@@ -27,7 +27,7 @@ class PriceInstance:
 
 class TestMarket:
 
-    def __init__(self, coin1, coin2, price_log_file = None, coin1_balance = 10, coin2_balance = 10, trade_fee = 0):
+    def __init__(self, coin1, coin2, price_log_file = None, coin1_balance = 0, coin2_balance = 100, trade_fee = 0):
         
         self.coin1 = coin1
         self.coin2 = coin2
@@ -60,7 +60,8 @@ class TestMarket:
                     price_change_percent = price_log['price_change_percent']
                 )
                 self.price_logs.append(instance)
-
+                self.last_instance = instance
+                
             print('Succesfully loaded {} price instances from {}'.format(
                 len(self.price_logs), os.path.basename(price_log_file)))
 
@@ -70,41 +71,43 @@ class TestMarket:
         Get the last price instance, either from a saved file or from the live market.
         '''
         if len(self.price_logs) > 0:
-            return self.price_logs.pop(0)
+            self.last_instance = self.price_logs.pop(0)
+            return self.last_instance
         else:
             return None
 
 
-    def buy_coin1(self, coin1_amount):
-        '''
-        Perform simulated or live buy of coin1_amount.
-        '''
-        price12 = self.price_logs[0].last_price
-        coin2_amount = coin1_amount * price12
-
-        if coin2_amount > self.coin2_balance:
-            print('\nNot enough {} (needed {}, available {})'.format(self.coin2, coin2_amount, self.coin2_balance),flush=True)
-            return 0
-        else: 
+    def buy_coin1(self, percentage):
+        
+        coin2_amount = percentage * self.coin2_balance 
+        coin1_amount = (1 - self.trade_fee) * (coin2_amount / self.price_logs[0].last_price)
+        
+        if coin1_amount > self.estimate_wallet_value_coin1() * 0.05:
             self.coin2_balance -= coin2_amount
-            self.coin1_balance += (1 - self.trade_fee) * coin1_amount 
-            return 1
+            self.coin1_balance += coin1_amount
 
+            print('Bought {} - {:.2f}% {}'.format(self.coin1, percentage * 100, self.coin2))
 
-    def sell_coin1(self, coin1_amount):
-        '''
-        Perform simulated or live sell of coin1_amount.
-        '''
-        price12 = self.price_logs[0].last_price
-        coin2_amount = coin1_amount * price12
+            return coin1_amount
 
-        if coin1_amount > self.coin1_balance:
-            print('\nNot enough {} (needed {}, available {})'.format(self.coin1, coin1_amount, self.coin1_balance),flush=True)
-            return 0
-        else: 
+        return 0
+
+          
+    def sell_coin1(self, percentage):
+
+        coin1_amount = percentage * self.coin1_balance
+        coin2_amount = (1 - self.trade_fee) * (coin1_amount * self.price_logs[0].last_price)
+        
+        if coin1_amount > self.estimate_wallet_value_coin1() * 0.05:
+
             self.coin1_balance -= coin1_amount
-            self.coin2_balance += (1 - self.trade_fee) * coin2_amount
-            return 1
+            self.coin2_balance += coin2_amount 
+
+            print('Sold {:.2f}% {}'.format(percentage * 100, self.coin1))
+
+            return -coin1_amount
+
+        return 0
     
 
     def get_wallet(self):       
@@ -115,7 +118,7 @@ class TestMarket:
         '''
         Estimate the current value of the wallet.
         '''
-        price12 = self.price_logs[0].last_price
+        price12 = self.last_instance.last_price
         coin2_balance_conv = self.coin2_balance / price12
         estimated_value = self.coin1_balance + coin2_balance_conv
         return estimated_value

@@ -97,6 +97,7 @@ class TraderHistory:
 
         for array in computed_values_arrays[:n]:
             values = array.values
+
             scaled_values = np.interp(values, (values.min(), values.max()), (0,1))
             plt.plot(values, label = array.label)
        
@@ -111,9 +112,8 @@ class TraderHistory:
         buy_actions_scaled[buy_actions == 0] = np.nan
         sell_actions_scaled[sell_actions == 0] = np.nan
 
-
-        plt.scatter(range(samples), buy_actions_scaled, s = buy_actions * 100, c = 'blue')
-        plt.scatter(range(samples), sell_actions_scaled, s = sell_actions * 100, c = 'brown')
+        plt.scatter(range(samples), buy_actions_scaled, s = buy_actions / np.amax(buy_actions) * 100, c = 'blue')
+        plt.scatter(range(samples), sell_actions_scaled, s = sell_actions / np.amax(sell_actions) * 100, c = 'brown')
            
             
         plt.legend()

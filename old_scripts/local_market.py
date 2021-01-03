@@ -135,6 +135,8 @@ class Market:
         plt.legend()
         plt.grid(True)
         plt.show()
+
+
 class TestMarket:
 
     def __init__(self, coin1, coin2, price_log_file = None, coin1_balance = 10, coin2_balance = 10, trade_fee = 0.01):
@@ -183,32 +185,22 @@ class TestMarket:
             return None
 
 
-    def buy_coin1(self, coin1_amount):
+    def buy_coin1(self, percentage):
         
-        price12 = self.price_logs[0].last_price
-        coin2_amount = coin1_amount * price12
+        coin2_amount = 0.99 * percentage * self.coin2_balance 
+        self.coin2_balance -= coin2_amount
+        self.coin1_balance += (1 - self.trade_fee) * (coin2_amount / self.price_logs[0].last_price)
 
-        if coin2_amount > self.coin2_balance:
-            print('\nNot enough {} (needed {}, available {})'.format(self.coin2, coin2_amount, self.coin2_balance),flush=True)
-            return 0
-        else: 
-            self.coin2_balance -= coin2_amount
-            self.coin1_balance += (1 - self.trade_fee) * coin1_amount 
-            return 1
+        return 1
 
             
-    def sell_coin1(self, coin1_amount):
+    def sell_coin1(self, percentage):
 
-        price12 = self.price_logs[0].last_price
-        coin2_amount = coin1_amount * price12
+        coin1_amount = 0.99 * percentage * self.coin1_balance
+        self.coin1_balance -= coin1_amount
+        self.coin2_balance += (1 - self.trade_fee) * (coin1_amount * self.price_logs[0].last_price)
 
-        if coin1_amount > self.coin1_balance:
-            print('\nNot enough {} (needed {}, available {})'.format(self.coin1, coin1_amount, self.coin1_balance),flush=True)
-            return 0
-        else: 
-            self.coin1_balance -= coin1_amount
-            self.coin2_balance += (1 - self.trade_fee) * coin2_amount
-            return 1
+        return 1
 
 
     def get_wallet(self):

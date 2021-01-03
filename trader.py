@@ -1,5 +1,4 @@
 
-
 import glob, random, time, os, yaml, json
 import numpy as np, matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -41,20 +40,21 @@ class Trader:
             
             _, _, estimated_value = self.market.get_wallet()
 
+            confirmed_action = 0
+            if action > 0:
+                confirmed_action = self.market.buy_coin1(action)
+            if action < 0:
+                confirmed_action = self.market.sell_coin1(-action)
+
             history_instance = HistoryInstance(
                 coin1_balance = self.coin1_balance,
                 coin2_balance = self.coin2_balance,
-                action = action,
+                action = confirmed_action,
                 computed_values = computed_values,
                 estimated_value = estimated_value
             )
 
             self.history.add_instance(history_instance)
-
-            if action > 0:
-                self.market.buy_coin1(0.9 * self.coin2_balance / current_price_instance.last_price)
-            if action < 0:
-                self.market.sell_coin1(0.9 * self.market.coin1_balance)
             
             return 1
         else:
@@ -63,21 +63,28 @@ class Trader:
         
     def run(self, samples = None):
         
-        _, _, estimated_value_start = self.market.get_wallet()
-        if samples is None:
-            cont = 1
-            while cont is 1:
-                cont = self.run_step()
-        else:
-            for _ in range(samples):
-                self.run_step()
+        coin1_start, coin2_start, estimated_value_start = self.market.get_wallet()
 
+
+        if samples is None:
+            samples = len(self.market.price_logs) - 1
+        
+        for _ in range(samples-1):
+            self.run_step()
+
+        coin1_end, coin2_end, estimated_value_end = self.market.get_wallet()
+
+        print('Wallet change: {:.2f}% ({:.2f} {})'.format(
+            100 * (estimated_value_end - estimated_value_start)/estimated_value_start,
+            estimated_value_end - estimated_value_start,
+            self.coin1))
+        
+        print('Initially:')
+        print('{}{}\n{}{}'.format(coin1_start, self.coin1, coin2_start, self.coin2))
+        print('Final:')
+        print('{}{}\n{}{}'.format(coin1_end, self.coin1, coin2_end, self.coin2))
         self.history.plot_history()
 
-        _, _, estimated_value_end = self.market.get_wallet()
-
-        print('Wallet change: {}{}'.format(estimated_value_end - estimated_value_start, self.coin1))
-        
     '''
     def decide_action(self):
         
@@ -136,4 +143,4 @@ if __name__ == '__main__' :
 
 
     trader = Trader('BTC', 'USDT', testing=True)
-    trader.run(samples = 500)
+    trader.run(samples = 1000)
